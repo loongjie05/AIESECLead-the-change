@@ -20,14 +20,23 @@ function initAudio() { if (!S.ctx) S.ctx = new (window.AudioContext || window.we
 function resumeCtx() { if (S.ctx && S.ctx.state === 'suspended') S.ctx.resume(); }
 
 /* --- Typing blip --- */
-function blip() {
+function blip(isNarrator) {
     try {
         if (!S.ctx) return; resumeCtx();
         let o = S.ctx.createOscillator(), g = S.ctx.createGain();
-        o.type = 'square'; o.frequency.value = 420 + Math.random() * 60;
-        g.gain.setValueAtTime(0.18, S.ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.005, S.ctx.currentTime + 0.06);
-        o.connect(g); g.connect(S.ctx.destination); o.start(); o.stop(S.ctx.currentTime + 0.06);
+        if (isNarrator) {
+            o.type = 'sine'; 
+            o.frequency.setValueAtTime(400 + Math.random() * 50, S.ctx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(800 + Math.random() * 100, S.ctx.currentTime + 0.06);
+            g.gain.setValueAtTime(0.3, S.ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.005, S.ctx.currentTime + 0.06);
+            o.connect(g); g.connect(S.ctx.destination); o.start(); o.stop(S.ctx.currentTime + 0.06);
+        } else {
+            o.type = 'square'; o.frequency.value = 420 + Math.random() * 60;
+            g.gain.setValueAtTime(0.18, S.ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.005, S.ctx.currentTime + 0.06);
+            o.connect(g); g.connect(S.ctx.destination); o.start(); o.stop(S.ctx.currentTime + 0.06);
+        }
     } catch (e) { }
 }
 
@@ -280,7 +289,8 @@ function render() {
 
     // Highlight speaker
     cL.classList.remove('talk', 'dim'); cR.classList.remove('talk', 'dim');
-    if (sc.spk && sc.spk !== 'Narrator') {
+    let isNarrator = (!sc.spk || sc.spk === 'Narrator');
+    if (!isNarrator) {
         let lKey = sc.cL || ''; let rKey = sc.cR || '';
         let spkLow = sc.spk.toLowerCase().replace(/[\s_]/g, '');
         if (lKey.toLowerCase().replace(/[\s_]/g, '').includes(spkLow)) { cL.classList.add('talk'); if (cR.classList.contains('on')) cR.classList.add('dim'); }
@@ -289,17 +299,19 @@ function render() {
 
     // Text
     $('spk').textContent = sc.spk || 'Narrator';
+    if (isNarrator) $('dtxt').classList.add('narrator'); else $('dtxt').classList.remove('narrator');
     $('dtxt').textContent = '';
     $('nxt').style.display = 'none';
-    typeIt(sc.txt, 0);
+
+    typeIt(sc.txt, 0, isNarrator);
 }
 
-function typeIt(txt, i) {
+function typeIt(txt, i, isNarrator) {
     S.typing = true;
     if (i < txt.length) {
         $('dtxt').textContent += txt[i];
-        if (txt[i] !== ' ') blip();
-        S.timer = setTimeout(() => typeIt(txt, i + 1), 28);
+        if (txt[i] !== ' ') blip(isNarrator);
+        S.timer = setTimeout(() => typeIt(txt, i + 1, isNarrator), 28);
     } else {
         S.typing = false;
         $('nxt').style.display = 'block';
@@ -307,7 +319,13 @@ function typeIt(txt, i) {
 }
 
 function adv() {
-    if (S.typing) { clearTimeout(S.timer); $('dtxt').textContent = S.scenes[S.si].txt; S.typing = false; $('nxt').style.display = 'block'; return; }
+    if (S.typing) { 
+        clearTimeout(S.timer); 
+        $('dtxt').textContent = S.scenes[S.si].txt; 
+        S.typing = false; 
+        $('nxt').style.display = 'block'; 
+        return; 
+    }
     if ($('chs').classList.contains('on') || $('ins').classList.contains('on')) return;
     S.si++; render();
 }
